@@ -8,6 +8,7 @@ import random
 import re
 import subprocess
 import sys
+import webbrowser
 from pathlib import Path
 from typing import Annotated, Optional
 
@@ -636,42 +637,30 @@ def sizes(
     rprint("\n[dim]Note: Estimates are approximate. Actual sizes vary by video content.[/]\n")
 
 
+GITHUB_REPO = "https://github.com/DominiquePaul/proteus"
+
+
+def _open_readme() -> None:
+    """Open the GitHub README in browser."""
+    url = f"{GITHUB_REPO}#readme"
+    rprint(f"Opening [cyan]{url}[/] ...")
+    webbrowser.open(url)
+
+
 @app.command()
 def docs() -> None:
     """
-    Show documentation (renders README in terminal).
-    
-    Opens the Proteus documentation right in your terminal with beautiful formatting.
+    Open documentation in your browser.
     """
-    readme_path = get_package_dir() / "README.md"
-    
-    if not readme_path.exists():
-        # Try alternate locations
-        alt_paths = [
-            Path(__file__).parent.parent.parent / "README.md",
-            Path(__file__).parent.parent.parent.parent / "README.md",
-        ]
-        for alt in alt_paths:
-            if alt.exists():
-                readme_path = alt
-                break
-    
-    if not readme_path.exists():
-        rprint("[bold yellow]README not found locally.[/]")
-        rprint("\nQuick reference:\n")
-        rprint("  [cyan]proteus convert video.mov[/]        → Convert to MP4")
-        rprint("  [cyan]proteus convert video.mov -q 28[/]  → Convert with smaller size")
-        rprint("  [cyan]proteus compress video.mp4[/]       → Smart compression")
-        rprint("  [cyan]proteus compress video.mp4 -l heavy[/] → Heavy compression")
-        rprint("  [cyan]proteus info video.mov[/]           → Show video details")
-        rprint("\nRun [cyan]proteus --help[/] or [cyan]proteus <command> --help[/] for more.")
-        return
+    _open_readme()
 
-    with open(readme_path, "r") as f:
-        content = f.read()
-    
-    md = Markdown(content)
-    console.print(md)
+
+@app.command()
+def readme() -> None:
+    """
+    Open documentation in your browser (alias for docs).
+    """
+    _open_readme()
 
 
 @app.command()

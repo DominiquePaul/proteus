@@ -2,7 +2,7 @@
 
 **Shape-shifting video converter** — Transform formats and compress with ease.
 
-Named after the Greek god Proteus, who could change into any shape at will.
+Named after the Greek god who could change into any shape at will.
 
 ---
 
@@ -13,204 +13,202 @@ Named after the Greek god Proteus, who could change into any shape at will.
 brew install ffmpeg
 uv tool install git+https://github.com/DominiquePaul/proteus.git
 
-# Use anywhere
-proteus convert video.mov           # → video.mp4
-proteus compress video.mp4 -l heavy # → smaller file for sharing
-proteus info video.mov              # → show video details
+# Compress a video
+proteus compress path/to/video.mp4
+```
+
+**Example output:**
+```
+🔱 video.mp4 → video_compressed.mp4
+   1.0 GB → ~243.6 MB estimated  (⚡ hardware)
+📦 Add --slow for ~20% smaller files (5-10x slower)
+Tip: Use proteus compress video.mp4 -l heavy for smaller files
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:00:50
+✓ Done  1.0 GB → 197.8 MB  5.1x smaller  (saved 817.0 MB)
+📉 Compress further: proteus compress 'video.mp4' --slow -r 720 -l heavy -f
 ```
 
 ---
 
 ## Commands
 
-### `convert` — Format Conversion
-
-The workhorse command. Converts any video to MP4 (H.264/AAC).
-
-```bash
-# Basic conversion
-proteus convert video.mov
-
-# Custom output name
-proteus convert video.mov -o output.mp4
-
-# Lower quality for smaller file (CRF 28)
-proteus convert video.mov -q 28
-
-# Higher quality (CRF 18)
-proteus convert video.mov -q 18
-
-# Scale to 720p (maintains aspect ratio)
-proteus convert video.mov -r 720
-
-# Scale to specific resolution
-proteus convert video.mov -r 1280x720
-
-# Remove audio
-proteus convert video.mov --no-audio
-
-# Combine options
-proteus convert video.mov -o small.mp4 -q 28 -r 720
-```
-
-**Quality Guide (CRF):**
-| CRF | Quality | File Size | Use Case |
-|-----|---------|-----------|----------|
-| 18 | Excellent | Large | Archival |
-| 23 | Good | Medium | Default, general use |
-| 28 | Acceptable | Small | Sharing, uploads |
-| 32+ | Low | Tiny | Previews, thumbnails |
-
 ### `compress` — Smart Compression
 
-Preset-based compression for when you just want "make it smaller."
+The easiest way to shrink videos. Uses hardware acceleration by default.
 
 ```bash
-# Medium compression (balanced)
-proteus compress video.mp4
-
-# Light compression (minimal quality loss)
-proteus compress video.mp4 -l light
-
-# Heavy compression (for sharing)
-proteus compress video.mp4 -l heavy
-
-# Extreme compression (significant quality loss)
-proteus compress video.mp4 -l extreme
+proteus compress video.mp4 -f                  # Default (medium)
+proteus compress video.mp4 -l heavy -f         # Smaller file
+proteus compress video.mp4 -r 1080 -f          # Scale 4K → 1080p
+proteus compress video.mp4 -r 720 -l heavy -f  # Combine options
+proteus compress video.mp4 --slow -f           # Best compression (slower)
 ```
 
 **Compression Levels:**
-| Level | CRF | Best For |
-|-------|-----|----------|
-| light | 20 | Slight reduction, preserve quality |
-| medium | 26 | Good balance |
-| heavy | 30 | Sharing via email/chat |
-| extreme | 35 | When size matters most |
+
+| Level | Quality | Best For |
+|-------|---------|----------|
+| `light` | High | Slight reduction, preserve quality |
+| `medium` | Good | Balanced (default) |
+| `heavy` | Acceptable | Sharing via email/chat |
+| `extreme` | Low | When size matters most |
+
+**Options:**
+- `-l`, `--level` — Compression level (light/medium/heavy/extreme)
+- `-r`, `--resolution` — Scale down (e.g., `-r 1080`, `-r 720`)
+- `-f`, `--force` — Overwrite existing file
+- `--slow` — Use software encoding (~20% smaller, 5-10x slower)
+
+---
+
+### `convert` — Format Conversion
+
+Convert any video to MP4 with full control over quality.
+
+```bash
+proteus convert video.mov -f           # Basic conversion
+proteus convert video.mov -q 28 -f     # Lower quality, smaller file
+proteus convert video.mov -r 720 -f    # Scale to 720p
+proteus convert video.mov --no-audio -f # Remove audio
+```
+
+**Quality Guide (CRF 0-51):**
+
+| CRF | Quality | Use Case |
+|-----|---------|----------|
+| 18 | Visually lossless | Archival |
+| 23 | Excellent | Default |
+| 28 | Good | Sharing |
+| 35 | Low | Previews |
+
+Lower CRF = better quality, bigger file. Each +6 roughly doubles compression.
+
+**Options:**
+- `-q`, `--quality` — CRF value (default: 23)
+- `-r`, `--resolution` — Scale down
+- `-o`, `--output` — Custom output path
+- `--no-audio` — Strip audio track
+- `-f`, `--force` — Overwrite existing file
+- `--slow` — Software encoding for best compression
+
+---
 
 ### `info` — Video Information
 
-Inspect video metadata.
-
 ```bash
-proteus info video.mov
+proteus info video.mp4
 ```
 
-Shows: codec, resolution, duration, file size, frame rate, audio info.
-
-### `formats` — Quick Reference
-
-Show a cheatsheet of common conversions.
-
-```bash
-proteus formats
+**Example output:**
 ```
-
-### `docs` — Documentation
-
-Render this README beautifully in your terminal.
-
-```bash
-proteus docs
-```
-
----
-
-## Common Workflows
-
-### Convert iPhone video for web
-
-```bash
-proteus convert IMG_1234.MOV -r 1080 -q 26
-```
-
-### Compress for email attachment
-
-```bash
-proteus compress presentation.mp4 -l heavy
-```
-
-### Batch convert all .mov files
-
-```bash
-for f in *.mov; do proteus convert "$f"; done
-```
-
-### Make a small preview
-
-```bash
-proteus convert video.mov -o preview.mp4 -r 480 -q 32
+      🎬 video.mp4
+┏━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┓
+┃ Property    ┃ Value           ┃
+┡━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━┩
+│ Size        │ 1014.8 MB       │
+│ Duration    │ 2:08            │
+│ Format      │ QuickTime / MOV │
+│ Video Codec │ hevc            │
+│ Resolution  │ 3840x2160       │
+│ Frame Rate  │ 60.0 fps        │
+│ Audio Codec │ aac             │
+│ Sample Rate │ 48000 Hz        │
+│ Channels    │ 2               │
+└─────────────┴─────────────────┘
 ```
 
 ---
 
-## Options Reference
+### `sizes` — Preview Compression Options
 
-### Global Options
+See estimated file sizes before committing to a long encode.
 
-| Option | Description |
-|--------|-------------|
-| `--help` | Show help for any command |
-| `--version`, `-v` | Show version |
+```bash
+proteus sizes video.mp4
+```
 
-### Convert Options
+---
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `-o`, `--output` | `{input}.mp4` | Output file path |
-| `-q`, `--quality` | `23` | CRF value (18-35, lower=better) |
-| `-p`, `--preset` | `medium` | Encoding speed preset |
-| `-a`, `--audio` | `192k` | Audio bitrate |
-| `-r`, `--resolution` | original | Scale to resolution |
-| `--no-audio` | false | Strip audio track |
+### `docs` / `readme` — Open Documentation
 
-### Compress Options
+```bash
+proteus docs    # Opens this README in browser
+proteus readme  # Same thing
+```
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `-o`, `--output` | `{input}_compressed` | Output file path |
-| `-l`, `--level` | `medium` | light/medium/heavy/extreme |
+---
+
+## Real-World Examples
+
+### Compress 4K video for sharing
+
+```bash
+proteus compress video.mp4 -r 1080 -l heavy -f
+```
+Result: 1.0 GB → 94.8 MB (10.7x smaller)
+
+### Maximum compression
+
+```bash
+proteus compress video.mp4 -r 720 -l extreme --slow -f
+```
+Result: 1.0 GB → 10.8 MB (93.8x smaller)
+
+### Quick conversion (hardware accelerated)
+
+```bash
+proteus compress video.mp4 -f
+```
+~2 minutes for a 1GB 4K video on Apple Silicon
+
+### Batch convert
+
+```bash
+for f in *.mov; do proteus compress "$f" -f; done
+```
+
+---
+
+## Hardware vs Software Encoding
+
+| Mode | Speed | File Size | When to Use |
+|------|-------|-----------|-------------|
+| Default (hardware) | ⚡ Fast | Larger | Quick conversions |
+| `--slow` (software) | 🐢 5-10x slower | ~20% smaller | When size matters |
+
+Hardware encoding uses Apple VideoToolbox (Mac) for both decoding and encoding.
 
 ---
 
 ## Tips
 
-1. **Forgot a command?** Just run `proteus` or `proteus --help`
-2. **Forgot command options?** Run `proteus convert --help`
-3. **Want the docs?** Run `proteus docs`
-4. **CRF sweet spot:** 23-26 for most uses, 28 for sharing
+1. **Always use `-f`** to overwrite existing files
+2. **Start with defaults**, then add `-l heavy` or `-r 720` if needed
+3. **Use `proteus sizes`** to preview options before long encodes
+4. **Forgot options?** Run `proteus compress --help`
+
+---
+
+## Install / Update / Uninstall
+
+```bash
+# Install
+uv tool install git+https://github.com/DominiquePaul/proteus.git
+
+# Update (after code changes)
+cd /path/to/proteus
+uv tool install . --reinstall
+
+# Uninstall
+uv tool uninstall proteus
+```
+
+**Requires:** [ffmpeg](https://formulae.brew.sh/formula/ffmpeg) (`brew install ffmpeg`)
 
 ---
 
 ## Why "Proteus"?
 
-In Greek mythology, Proteus was the "Old Man of the Sea" — a prophetic sea god who could change his shape at will. The word *protean* literally means "versatile" or "capable of assuming many forms."
+In Greek mythology, Proteus was the "Old Man of the Sea" who could transform into any shape. The word *protean* means "versatile" or "capable of assuming many forms."
 
-Perfect for a tool that transforms videos between formats. 🔱
-
----
-
-## Under the Hood
-
-Proteus uses `ffmpeg` with sensible defaults:
-- **Video:** H.264 (libx264) — universal compatibility
-- **Audio:** AAC — high quality, small size
-- **Container:** MP4 — plays everywhere
-
----
-
-## Reinstall / Update
-
-If you've made changes to the code, reinstall with:
-
-```bash
-cd /path/to/proteus
-uv tool install . --reinstall
-```
-
----
-
-## Uninstall
-
-```bash
-uv tool uninstall proteus
-```
+Perfect for a tool that transforms videos. 🔱
