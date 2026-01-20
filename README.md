@@ -6,34 +6,17 @@ Named after the Greek god Proteus, who could change into any shape at will.
 
 ---
 
-## Installation
-
-```bash
-# Navigate to the proteus directory
-cd /path/to/proteus
-
-# Install globally with uv (recommended)
-uv tool install .
-
-# Or install in development mode
-uv pip install -e .
-```
-
-**Prerequisite:** You need `ffmpeg` installed:
-
-```bash
-brew install ffmpeg
-```
-
----
-
 ## Quick Start
 
 ```bash
-# Convert .mov to .mp4 (smart defaults)
-proteus convert video.mov
+# Install (one-time)
+brew install ffmpeg
+uv tool install git+https://github.com/DominiquePaul/proteus.git
 
-# That's it! Output: video.mp4
+# Use anywhere
+proteus convert video.mov           # → video.mp4
+proteus compress video.mp4 -l heavy # → smaller file for sharing
+proteus info video.mov              # → show video details
 ```
 
 ---
@@ -212,6 +195,17 @@ Proteus uses `ffmpeg` with sensible defaults:
 - **Video:** H.264 (libx264) — universal compatibility
 - **Audio:** AAC — high quality, small size
 - **Container:** MP4 — plays everywhere
+
+---
+
+## Reinstall / Update
+
+If you've made changes to the code, reinstall with:
+
+```bash
+cd /path/to/proteus
+uv tool install . --reinstall
+```
 
 ---
 
