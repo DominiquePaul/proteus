@@ -93,6 +93,28 @@ Lower CRF = better quality, bigger file. Each +6 roughly doubles compression.
 
 ---
 
+### `speed` — Speed Up or Slow Down
+
+Change video playback speed. Keeps original format by default.
+
+```bash
+proteus speed video.mp4 -x 10 -f          # 10x faster
+proteus speed video.mp4 -d 30 -f          # Target 30 seconds duration
+proteus speed video.mp4 -x 0.5 -f         # Half speed (slow motion)
+proteus speed video.mp4 -x 5 --convert -f # Speed up + convert to MP4
+```
+
+**Options:**
+- `-x`, `--factor` — Speedup factor (e.g., `-x 10` for 10x faster)
+- `-d`, `--duration` — Target duration in seconds
+- `-c`, `--convert` — Convert to MP4 H.264 (default: keep original format)
+- `--no-audio` — Remove audio track
+- `-f`, `--force` — Overwrite existing file
+
+Note: Use either `-x` or `-d`, not both.
+
+---
+
 ### `info` — Video Information
 
 ```bash
@@ -160,6 +182,13 @@ Result: 1.0 GB → 10.8 MB (93.8x smaller)
 proteus compress video.mp4 -f
 ```
 ~2 minutes for a 1GB 4K video on Apple Silicon
+
+### Create timelapse from long video
+
+```bash
+proteus speed video.mp4 -x 10 -f
+```
+A 10-minute video becomes 1 minute at 10x speed.
 
 ### Batch convert
 

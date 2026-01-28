@@ -37,6 +37,8 @@ TIPS = [
     "Tip: Use [cyan]proteus convert video.mov --no-audio[/] to remove audio",
     "Tip: Use [cyan]proteus sizes video.mp4[/] to preview all compression options",
     "Tip: Use [cyan]proteus info video.mp4[/] to inspect codec & resolution",
+    "Tip: Use [cyan]proteus speed video.mp4 -x 10[/] for 10x speedup",
+    "Tip: Use [cyan]proteus speed video.mp4 -d 30[/] to target 30 seconds",
     "Tip: Use [cyan]proteus docs[/] to view full documentation",
 ]
 
@@ -661,6 +663,282 @@ def readme() -> None:
     Open documentation in your browser (alias for docs).
     """
     _open_readme()
+
+
+def build_atempo_filter(speed: float) -> str:
+    """
+    Build atempo filter chain for audio speed adjustment.
+    
+    atempo filter only supports values between 0.5 and 2.0, so for
+    higher speeds we need to chain multiple atempo filters.
+    """
+    if speed <= 0:
+        return "atempo=1.0"
+    
+    filters = []
+    remaining = speed
+    
+    # Chain atempo filters (each can do max 2.0x)
+    while remaining > 2.0:
+        filters.append("atempo=2.0")
+        remaining /= 2.0
+    
+    # Handle remaining speed (may be less than 0.5 for very high speeds after chaining)
+    while remaining < 0.5:
+        filters.append("atempo=0.5")
+        remaining /= 0.5
+    
+    if 0.5 <= remaining <= 2.0:
+        filters.append(f"atempo={remaining:.4f}")
+    
+    return ",".join(filters) if filters else "atempo=1.0"
+
+
+def get_video_codec(path: Path) -> Optional[str]:
+    """Get the video codec name from a file."""
+    info = get_video_info(path)
+    for stream in info.get("streams", []):
+        if stream.get("codec_type") == "video":
+            return stream.get("codec_name")
+    return None
+
+
+def get_video_fps(path: Path) -> Optional[float]:
+    """Get the video frame rate from a file."""
+    info = get_video_info(path)
+    for stream in info.get("streams", []):
+        if stream.get("codec_type") == "video":
+            fps_str = stream.get("r_frame_rate", "0/1")
+            if "/" in fps_str:
+                num, den = fps_str.split("/")
+                if int(den) > 0:
+                    return int(num) / int(den)
+            return None
+    return None
+
+
+def get_audio_codec(path: Path) -> Optional[str]:
+    """Get the audio codec name from a file."""
+    info = get_video_info(path)
+    for stream in info.get("streams", []):
+        if stream.get("codec_type") == "audio":
+            return stream.get("codec_name")
+    return None
+
+
+@app.command()
+def speed(
+    input_file: Annotated[Path, typer.Argument(help="Input video file")],
+    output: Annotated[
+        Optional[Path],
+        typer.Option("-o", "--output", help="Output file path"),
+    ] = None,
+    factor: Annotated[
+        Optional[float],
+        typer.Option("-x", "--factor", help="Speedup factor (e.g., 2 for 2x faster, 10 for 10x)"),
+    ] = None,
+    duration: Annotated[
+        Optional[float],
+        typer.Option("-d", "--duration", help="Target duration in seconds"),
+    ] = None,
+    convert: Annotated[
+        bool,
+        typer.Option("--convert", "-c", help="Convert to MP4 H.264 instead of keeping original format"),
+    ] = False,
+    no_audio: Annotated[
+        bool,
+        typer.Option("--no-audio", help="Remove audio track"),
+    ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-V", help="Show full ffmpeg output"),
+    ] = False,
+    force: Annotated[
+        bool,
+        typer.Option("--force", "-f", help="Overwrite output file if it exists"),
+    ] = False,
+) -> None:
+    """
+    Speed up (or slow down) a video.
+    
+    Specify either a speedup factor (-x) or a target duration (-d).
+    By default, keeps the original format. Use --convert to output as MP4.
+    
+    [bold green]Examples:[/]
+    
+      [dim]# Speed up 10x (keeps original format)[/]
+      proteus speed video.mov -x 10
+      
+      [dim]# Speed up to target 30 seconds[/]
+      proteus speed video.mov -d 30
+      
+      [dim]# Speed up 5x and convert to MP4[/]
+      proteus speed video.mov -x 5 --convert
+      
+      [dim]# Slow down to half speed[/]
+      proteus speed video.mov -x 0.5
+    """
+    if not check_ffmpeg():
+        rprint("[bold red]Error:[/] ffmpeg not found. Install with: [cyan]brew install ffmpeg[/]")
+        raise typer.Exit(1)
+
+    if not input_file.exists():
+        rprint(f"[bold red]Error:[/] File not found: {input_file}")
+        raise typer.Exit(1)
+
+    # Validate options
+    if factor is None and duration is None:
+        rprint("[bold red]Error:[/] Specify either [cyan]-x/--factor[/] or [cyan]-d/--duration[/]")
+        raise typer.Exit(1)
+    
+    if factor is not None and duration is not None:
+        rprint("[bold red]Error:[/] Cannot use both [cyan]-x/--factor[/] and [cyan]-d/--duration[/]")
+        raise typer.Exit(1)
+
+    # Get input duration
+    input_duration = get_video_duration(input_file)
+    if input_duration <= 0:
+        rprint("[bold red]Error:[/] Could not determine video duration")
+        raise typer.Exit(1)
+
+    # Calculate speedup factor
+    if duration is not None:
+        if duration <= 0:
+            rprint("[bold red]Error:[/] Target duration must be positive")
+            raise typer.Exit(1)
+        speed_factor = input_duration / duration
+    else:
+        speed_factor = factor
+        if speed_factor <= 0:
+            rprint("[bold red]Error:[/] Speed factor must be positive")
+            raise typer.Exit(1)
+
+    # Calculate output duration
+    output_duration = input_duration / speed_factor
+
+    # Determine output path and format
+    if output is None:
+        speed_label = f"{speed_factor:.1f}x".replace(".", "_")
+        if convert:
+            output = input_file.with_stem(f"{input_file.stem}_{speed_label}").with_suffix(".mp4")
+        else:
+            output = input_file.with_stem(f"{input_file.stem}_{speed_label}")
+    
+    # Check if output already exists
+    if output.exists() and not force:
+        rprint(f"[bold yellow]Warning:[/] Output file already exists: [cyan]{output}[/]")
+        rprint(f"  Use [cyan]--force[/] or [cyan]-f[/] to overwrite")
+        raise typer.Exit(1)
+
+    # Get original frame rate to preserve it
+    original_fps = get_video_fps(input_file)
+
+    # Build ffmpeg command
+    cmd = ["ffmpeg", "-i", str(input_file)]
+
+    # Video filter for speed adjustment
+    # setpts=PTS/N speeds up by factor N (smaller PTS = faster)
+    video_filter = f"setpts=PTS/{speed_factor}"
+
+    if convert:
+        # Convert to H.264 MP4
+        cmd.extend(["-c:v", "libx264", "-preset", "medium", "-crf", "23"])
+    else:
+        # Try to keep similar quality with re-encoding
+        # We must re-encode because we're applying filters
+        video_codec = get_video_codec(input_file)
+        
+        # Map common codecs to encoders
+        codec_map = {
+            "h264": "libx264",
+            "hevc": "libx265",
+            "h265": "libx265",
+            "vp9": "libvpx-vp9",
+            "vp8": "libvpx",
+            "av1": "libaom-av1",
+            "prores": "prores_ks",
+        }
+        
+        encoder = codec_map.get(video_codec, "libx264")
+        cmd.extend(["-c:v", encoder])
+        
+        # Add quality settings based on encoder
+        if encoder in ["libx264", "libx265"]:
+            cmd.extend(["-crf", "18", "-preset", "medium"])
+        elif encoder == "libvpx-vp9":
+            cmd.extend(["-crf", "30", "-b:v", "0"])
+        elif encoder == "prores_ks":
+            cmd.extend(["-profile:v", "3"])  # ProRes 422 HQ
+
+    # Apply video filter
+    cmd.extend(["-vf", video_filter])
+
+    # Set output frame rate: use original fps but cap at 60 for compatibility
+    # (most platforms like X/Twitter, YouTube cap at 60fps)
+    if original_fps:
+        output_fps = min(original_fps, 60.0)
+        cmd.extend(["-r", str(output_fps)])
+
+    # Handle audio
+    if no_audio:
+        cmd.extend(["-an"])
+    else:
+        # Build audio filter for speed adjustment
+        audio_filter = build_atempo_filter(speed_factor)
+        cmd.extend(["-af", audio_filter])
+        
+        if convert:
+            cmd.extend(["-c:a", "aac", "-b:a", "192k"])
+        else:
+            # Re-encode audio with similar codec
+            audio_codec = get_audio_codec(input_file)
+            audio_codec_map = {
+                "aac": ("aac", ["-b:a", "192k"]),
+                "mp3": ("libmp3lame", ["-b:a", "192k"]),
+                "opus": ("libopus", ["-b:a", "128k"]),
+                "vorbis": ("libvorbis", ["-b:a", "192k"]),
+                "flac": ("flac", []),
+                "pcm_s16le": ("pcm_s16le", []),
+                "pcm_s24le": ("pcm_s24le", []),
+            }
+            
+            if audio_codec in audio_codec_map:
+                enc, opts = audio_codec_map[audio_codec]
+                cmd.extend(["-c:a", enc] + opts)
+            else:
+                cmd.extend(["-c:a", "aac", "-b:a", "192k"])
+
+    # Output file
+    cmd.extend(["-y", str(output)])
+
+    # Format durations for display
+    def format_duration(secs: float) -> str:
+        mins = int(secs // 60)
+        remaining_secs = secs % 60
+        if mins > 0:
+            return f"{mins}m {remaining_secs:.1f}s"
+        return f"{remaining_secs:.1f}s"
+
+    input_dur_str = format_duration(input_duration)
+    output_dur_str = format_duration(output_duration)
+
+    speed_desc = f"{speed_factor:.1f}x" if speed_factor >= 1 else f"{1/speed_factor:.1f}x slower"
+    
+    rprint(f"🔱 [bold]{input_file.name}[/] → [cyan]{output.name}[/]")
+    rprint(f"   {input_dur_str} → {output_dur_str}  [dim]({speed_desc})[/]")
+    if convert:
+        rprint("[dim]   Converting to MP4 H.264[/]")
+    else:
+        rprint("[dim]   Keeping original format[/]")
+
+    success = run_ffmpeg_with_progress(cmd, output_duration, verbose)
+    
+    if success:
+        output_size = output.stat().st_size / (1024 * 1024)
+        rprint(f"[bold green]✓ Done[/]  {format_size(output_size)}")
+    else:
+        rprint(f"[bold red]✗ Failed[/] — run with [cyan]--verbose[/] to see details")
+        raise typer.Exit(1)
 
 
 @app.command()
