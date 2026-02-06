@@ -865,6 +865,9 @@ def speed(
         # Add quality settings based on encoder
         if encoder in ["libx264", "libx265"]:
             cmd.extend(["-crf", "18", "-preset", "medium"])
+            # HEVC in MOV requires hvc1 tag for QuickTime compatibility
+            if encoder == "libx265" and output.suffix.lower() == ".mov":
+                cmd.extend(["-tag:v", "hvc1"])
         elif encoder == "libvpx-vp9":
             cmd.extend(["-crf", "30", "-b:v", "0"])
         elif encoder == "prores_ks":
